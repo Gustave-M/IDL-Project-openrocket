@@ -10,6 +10,7 @@ import info.openrocket.core.rocketcomponent.NoseCone;
 import info.openrocket.core.rocketcomponent.Parachute;
 import info.openrocket.core.rocketcomponent.RocketComponent;
 import info.openrocket.core.rocketcomponent.TrapezoidFinSet;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * RocketActions Tester
@@ -33,5 +34,11 @@ public class RocketActionsTest {
         List<RocketComponent> copiedComponents = RocketActions.copyComponentsMaintainParent(components);
 
         // TODO: Asserts
+
+        assertEquals(components, copiedComponents);
+
+
+
+
     }
 }
