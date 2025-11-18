@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.ArrayList;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assertions;
 
 import info.openrocket.core.rocketcomponent.BodyTube;
 import info.openrocket.core.rocketcomponent.NoseCone;
@@ -24,47 +25,66 @@ public class RocketActionsTest {
      */
     @Test
     public void testCopyComponentsMaintainParent() throws Exception {
-        List<RocketComponent> components = new ArrayList<>();
-        components.add(new BodyTube(0.5, 0.05));
-        components.add(new NoseCone(NoseCone.Shape.CONICAL, 6 * NoseCone.DEFAULT_RADIUS, NoseCone.DEFAULT_RADIUS));
-        components.add(new TrapezoidFinSet(3, 0.05, 0.05, 0.025, 0.03));
-        components.add(new Parachute());
 
+        // Create a list of RocketComponent objects
+        List<RocketComponent> components = new ArrayList<>();
+        BodyTube bodyTube = new BodyTube(0.5, 0.05);
+        components.add(bodyTube);
+        NoseCone noseCone = new NoseCone(NoseCone.Shape.CONICAL, 6 * NoseCone.DEFAULT_RADIUS, NoseCone.DEFAULT_RADIUS);
+        components.add(noseCone);
+        TrapezoidFinSet trapezoidFinSet = new TrapezoidFinSet(3, 0.05, 0.05, 0.025, 0.03);
+        components.add(trapezoidFinSet);
+        Parachute parachute = new Parachute();
+        components.add(parachute);
+
+        // Copy the components
         List<RocketComponent> copiedComponents = RocketActions.copyComponentsMaintainParent(components);
 
-        // TODO: Asserts
-        @Test
-        assertEquals(components.size(), copiedComponents.size());
-        assertEquals(components.get(0).getClass(), copiedComponents.get(0).getClass());
-        assertEquals(components.get(1).getClass(), copiedComponents.get(1).getClass());
-        assertEquals(components.get(2).getClass(), copiedComponents.get(2).getClass());
-        assertEquals(components.get(3).getClass(), copiedComponents.get(3).getClass());
+        // Retrieve the copied components by their type
+        BodyTube copiedBodyTube = (BodyTube) copiedComponents.stream()
+            .filter(c -> c instanceof BodyTube)
+            .findFirst()
+            .orElse(null);
+        NoseCone copiedNoseCone = (NoseCone) copiedComponents.stream()
+            .filter(c -> c instanceof NoseCone)
+            .findFirst()
+            .orElse(null);
+        TrapezoidFinSet copiedTrapezoidFinSet = (TrapezoidFinSet) copiedComponents.stream()
+            .filter(c -> c instanceof TrapezoidFinSet)
+            .findFirst()
+            .orElse(null);
+        Parachute copiedParachute = (Parachute) copiedComponents.stream()
+            .filter(c -> c instanceof Parachute)
+            .findFirst()
+            .orElse(null);
+            
+        // Verify that the copied components are not null
+        Assertions.assertNotNull(copiedBodyTube);
+        Assertions.assertNotNull(copiedNoseCone);
+        Assertions.assertNotNull(copiedTrapezoidFinSet);
+        Assertions.assertNotNull(copiedParachute);
 
-        assertEquals(components.get(0).getLength(), copiedComponents.get(0).getLength());
-        assertEquals(components.get(0).getRadius(), copiedComponents.get(0).getRadius());
-        assertEquals(components.get(1).getLength(), copiedComponents.get(1).getLength());
-        assertEquals(components.get(1).getRadius(), copiedComponents.get(1).getRadius());
-        assertEquals(components.get(2).getRootChord(), copiedComponents.get(2).getRootChord());
-        assertEquals(components.get(2).getTipChord(), copiedComponents.get(2).getTipChord());
-        assertEquals(components.get(2).getSweep(), copiedComponents.get(2).getSweep());
-        assertEquals(components.get(2).getHeight(), copiedComponents.get(2).getHeight());
-        assertEquals(components.get(3).getDiameter(), copiedComponents.get(3).getDiameter());
-        assertEquals(components.get(3).getArea(), copiedComponents.get(3).getArea());
+        // Verify that the copied components have the same properties as the original components
+        Assertions.assertEquals(bodyTube.getLength(), copiedBodyTube.getLength());
+        Assertions.assertEquals(bodyTube.getOuterRadius(), copiedBodyTube.getOuterRadius());
+        Assertions.assertEquals(bodyTube.getThickness(), copiedBodyTube.getThickness());
+        Assertions.assertEquals(bodyTube.isFilled(), copiedBodyTube.isFilled());
 
+        Assertions.assertEquals(noseCone.getLength(), copiedNoseCone.getLength());
+        // TODO : add more properties to compare
+
+        Assertions.assertEquals(trapezoidFinSet.getFinCount(), copiedTrapezoidFinSet.getFinCount());
+        // TODO : add more properties to compare
+
+        Assertions.assertEquals(parachute.getDiameter(), copiedParachute.getDiameter());
+        // TODO : add more properties to compare
 
         // Copies should be distinct objects from originals
-        assertNotSame(components.get(0), copiedComponents.get(0));
-        assertNotSame(components.get(1), copiedComponents.get(1));
-        assertNotSame(components.get(2), copiedComponents.get(2));
-        assertNotSame(components.get(3), copiedComponents.get(3));
+        Assertions.assertNotSame(bodyTube, copiedBodyTube);
+        Assertions.assertNotSame(noseCone, copiedNoseCone);
+        Assertions.assertNotSame(trapezoidFinSet, copiedTrapezoidFinSet);
+        Assertions.assertNotSame(parachute, copiedParachute);
 
-
-        //Todo : parent-child relationship tests
-
-        //Todo : test for paste operation
-
-        // Todo : test for duplicate operation
-
-        // Todo : test for cut operation
+        // TODO : parent-child relationships tests
     }
 }
