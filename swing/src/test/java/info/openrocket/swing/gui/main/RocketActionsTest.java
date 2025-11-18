@@ -39,11 +39,11 @@ public class RocketActionsTest {
 
     /**
      * 
-     * Method: copyComponents
+     * Method: copyComponentsMaintainParent
      * 
      */
     @Test
-    public void testCopyComponentsMaintainParent() throws Exception {
+    public void testCopyComponentsMaintainParent() {
 
         // Create a list of RocketComponent objects
         List<RocketComponent> components = new ArrayList<>();
