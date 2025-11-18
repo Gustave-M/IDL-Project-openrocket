@@ -11,7 +11,7 @@ import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 
-import info.openrocket.core.ServicesForTesting;
+import info.openrocket.swing.ServicesForTesting;
 import info.openrocket.core.plugin.PluginModule;
 import info.openrocket.core.rocketcomponent.BodyTube;
 import info.openrocket.core.rocketcomponent.NoseCone;
