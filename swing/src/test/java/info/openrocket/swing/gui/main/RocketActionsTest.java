@@ -90,13 +90,23 @@ public class RocketActionsTest {
         Assertions.assertEquals(bodyTube.isFilled(), copiedBodyTube.isFilled());
 
         Assertions.assertEquals(noseCone.getLength(), copiedNoseCone.getLength());
-        // TODO : add more properties to compare
+        Assertions.assertEquals(noseCone.getBaseRadius(), copiedNoseCone.getBaseRadius());
+        Assertions.assertEquals(noseCone.getThickness(), copiedNoseCone.getThickness());
+        Assertions.assertEquals(noseCone.getShapeType(), copiedNoseCone.getShapeType());
+
 
         Assertions.assertEquals(trapezoidFinSet.getFinCount(), copiedTrapezoidFinSet.getFinCount());
-        // TODO : add more properties to compare
+        Assertion.assertEquals(trapezoidFinSet.getRootChord(), copiedTrapezoidFinSet.getRootChord());
+        Assertion.assertEquals(trapezoidFinSet.getTipChord(), copiedTrapezoidFinSet.getTipChord());
+        Assertion.assertEquals(trapezoidFinSet.getSweep(), copiedTrapezoidFinSet.getSweep());
+        Assertion.assertEquals(trapezoidFinSet.getLength(), copiedTrapezoidFinSet.getLength());
+        Assertion.assertEquals(trapezoidFinSet.getHeight(), copiedTrapezoidFinSet.getHeight());
+
 
         Assertions.assertEquals(parachute.getDiameter(), copiedParachute.getDiameter());
-        // TODO : add more properties to compare
+        Assertions.assertEquals(parachute.getMaterial(), copiedParachute.getMaterial());
+        Assertions.assertEquals(parachute.getLineCount(), copiedParachute.getLineCount());
+        Assertions.assertEquals(parachute.getLineLength(), copiedParachute.getLineLength());
 
         // Copies should be distinct objects from originals
         Assertions.assertNotSame(bodyTube, copiedBodyTube);
