@@ -96,11 +96,11 @@ public class RocketActionsTest {
 
 
         Assertions.assertEquals(trapezoidFinSet.getFinCount(), copiedTrapezoidFinSet.getFinCount());
-        Assertion.assertEquals(trapezoidFinSet.getRootChord(), copiedTrapezoidFinSet.getRootChord());
-        Assertion.assertEquals(trapezoidFinSet.getTipChord(), copiedTrapezoidFinSet.getTipChord());
-        Assertion.assertEquals(trapezoidFinSet.getSweep(), copiedTrapezoidFinSet.getSweep());
-        Assertion.assertEquals(trapezoidFinSet.getLength(), copiedTrapezoidFinSet.getLength());
-        Assertion.assertEquals(trapezoidFinSet.getHeight(), copiedTrapezoidFinSet.getHeight());
+        Assertions.assertEquals(trapezoidFinSet.getRootChord(), copiedTrapezoidFinSet.getRootChord());
+        Assertions.assertEquals(trapezoidFinSet.getTipChord(), copiedTrapezoidFinSet.getTipChord());
+        Assertions.assertEquals(trapezoidFinSet.getSweep(), copiedTrapezoidFinSet.getSweep());
+        Assertions.assertEquals(trapezoidFinSet.getLength(), copiedTrapezoidFinSet.getLength());
+        Assertions.assertEquals(trapezoidFinSet.getHeight(), copiedTrapezoidFinSet.getHeight());
 
 
         Assertions.assertEquals(parachute.getDiameter(), copiedParachute.getDiameter());
