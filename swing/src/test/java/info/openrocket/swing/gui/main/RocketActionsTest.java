@@ -3,20 +3,39 @@ package info.openrocket.swing.gui.main;
 import java.util.List;
 import java.util.ArrayList;
 
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
+import com.google.inject.Guice;
+import com.google.inject.Injector;
+import com.google.inject.Module;
+
+import info.openrocket.core.ServicesForTesting;
+import info.openrocket.core.plugin.PluginModule;
 import info.openrocket.core.rocketcomponent.BodyTube;
 import info.openrocket.core.rocketcomponent.NoseCone;
 import info.openrocket.core.rocketcomponent.Parachute;
 import info.openrocket.core.rocketcomponent.RocketComponent;
 import info.openrocket.core.rocketcomponent.TrapezoidFinSet;
+import info.openrocket.core.startup.Application;
 
 /**
  * RocketActions Tester
  * 
  */
 public class RocketActionsTest {
+
+	private static Injector injector;
+
+    @BeforeAll
+	public static void setup() {
+		Module applicationModule = new ServicesForTesting();
+		Module pluginModule = new PluginModule();
+
+		injector = Guice.createInjector(applicationModule, pluginModule);
+		Application.setInjector(injector);
+	}
 
     /**
      * 
