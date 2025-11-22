@@ -5,6 +5,7 @@ import static info.openrocket.core.util.MathUtil.pow2;
 import static info.openrocket.core.util.MathUtil.pow3;
 
 import java.util.Collection;
+import java.util.Optional;
 
 import info.openrocket.core.l10n.Translator;
 import info.openrocket.core.preset.ComponentPreset;
@@ -916,6 +917,29 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 				assert radius >= 0;
 				return radius * x / length;
 			}
+
+			@Override
+			public Optional<Double> getFullVolume(double foreRadius, double aftRadius, double length) {
+				// Volume of a conical section: V = pi/3 * L * (r1^2 + r1*r2 + r2^2)
+				double v = Math.PI / 3.0 * length * (pow2(foreRadius) + foreRadius * aftRadius + pow2(aftRadius));
+				return Optional.of(v);
+			}
+
+			@Override
+			public Optional<Double> getVolume(double foreRadius, double aftRadius, double length, double thickness, boolean filled) {
+				// If filled, return full volume
+				if (filled) {
+					return getFullVolume(foreRadius, aftRadius, length);
+				}
+				// Outer full volume
+				double outer = Math.PI / 3.0 * length * (pow2(foreRadius) + foreRadius * aftRadius + pow2(aftRadius));
+				// Inner radii (clamp at 0)
+				double ir1 = Math.max(foreRadius - thickness, 0);
+				double ir2 = Math.max(aftRadius - thickness, 0);
+				// Inner full volume
+				double inner = Math.PI / 3.0 * length * (pow2(ir1) + ir1 * ir2 + pow2(ir2));
+				return Optional.of(outer - inner);
+			}
 		},
 
 		/**
@@ -1232,6 +1256,36 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 		 * @return The basic radius at the given position.
 		 */
 		public abstract double getRadius(double x, double radius, double length, double param);
+
+		/**
+		 * Optional analytic full volume of this shape,
+		 * given the fore and aft outer radii and the length. Return null if an analytic
+		 * formula is not provided for this shape.
+		 *
+		 * @param foreRadius outer radius at fore end
+		 * @param aftRadius  outer radius at aft end
+		 * @param length     length of the shape
+		 * @return analytic full volume (cubic units) or null if not available
+		 */
+		public Optional<Double> getFullVolume(double foreRadius, double aftRadius, double length) {
+			return Optional.empty();
+		}
+
+		/**
+		 * Optional analytic hollow volume of this basic shape,
+		 * taking wall thickness or filled flag into account. Return null if an analytic
+		 * formula is not provided for this shape.
+		 *
+		 * @param foreRadius outer radius at fore end
+		 * @param aftRadius  outer radius at aft end
+		 * @param length     length of the shape
+		 * @param thickness  wall thickness (ignored if filled)
+		 * @param filled     whether the shape is filled (solid)
+		 * @return analytic hollow volume (cubic units) or null if not available
+		 */
+		public Optional<Double> getVolume(double foreRadius, double aftRadius, double length, double thickness, boolean filled) {
+			return Optional.empty();
+		}
 
 		/**
 		 * Returns the name of the shape (same as getName()).
