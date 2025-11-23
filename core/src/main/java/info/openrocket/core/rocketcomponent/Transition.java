@@ -602,6 +602,33 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 		}
 	}
 
+    /**
+     * Return the Volume (by direct calculation or by the super() implementation)
+     */
+    @Override
+    public double getComponentVolume() {
+        if (isClipped()) {
+
+        } else {
+
+        }
+        double x = this.getForeRadius();
+        double y = this.getAftRadius();
+        double l = this.getLength();
+        double t = this.getThickness();
+        boolean filled = this.isFilled();
+
+        Optional<Double> v =  type.getVolume(x, y, l, t, filled);
+
+        return v.orElse(super.getComponentVolume());
+        //equivalent à
+        /*if (v.isPresent()) {
+            return v.get();
+        } else {
+            return super.getComponentVolume();
+        }*/
+    }
+
 	/**
 	 * Numerically solve clipLength from the equation
 	 * r1 == type.getRadius(clipLength,r2,clipLength+length)
@@ -940,6 +967,17 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 				double inner = Math.PI / 3.0 * length * (pow2(ir1) + ir1 * ir2 + pow2(ir2));
 				return Optional.of(outer - inner);
 			}
+
+            //public double getComponentVolume() {
+
+            //ira, ir2 devrait être des paramètres interne aux Shapes ?
+
+            //getComponentWetArea : Math.PI * (ir1 * ir2) * sqrt(pow2(length) + pow2(ir1+ir2))
+            //getComponentPlanformArea : 2*ir1*length + (ir1-ir2)*length (pas sur pour les ir1 ou ir2 mais l'idée est là)
+            //getComponentPlanformCenter : ?
+            //getSymmetricComponentCG : Coordinate(?, 0, 0, mass)
+            //getLongitudinalUnitInertia : (R²+r²)/2 (pas vérifié, source)
+            //getRotationalUnitInertia : (R²+r²)/4 + (h²/6)((r+3R)/(r+R)) - (h²/9)((r+2R)²/((r+R)²)) (pas vérificé, source)
 		},
 
 		/**
