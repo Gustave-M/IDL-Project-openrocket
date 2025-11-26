@@ -630,9 +630,22 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
         }
     }
 
+	/**
+     * Return the Volume (by direct calculation or by the super() implementation)
+     */
+    @Override
+    public double getComponentWetArea() {
+        if (isClipped()) {
+            return super.getComponentWetArea();
+        } else {
+            Optional<Double> v =  type.getComponentWetArea(this);
+            // TODO : Add the Shoulder
+            return v.orElse(super.getComponentWetArea());
+        }
+    }
 
 
-    /**
+	/**
 	 * Numerically solve clipLength from the equation
 	 * r1 == type.getRadius(clipLength,r2,clipLength+length)
 	 * using a binary search. It assumes getOuterRadius() to be monotonically
@@ -964,12 +977,19 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 				// Outer full volume
 				double outer = Math.PI / 3.0 * transition.getLength() * (pow2(transition.getForeRadius()) + transition.getForeRadius() * transition.getAftRadius() + pow2(transition.getAftRadius()));
 				// Inner radii (clamp at 0)
-				double ir1 = Math.max(transition.getForeRadius() - transition.getThickness(), 0);
-				double ir2 = Math.max(transition.getAftRadius() - transition.getThickness(), 0);
+				double innerForeRadius = Math.max(transition.getForeRadius() - transition.getThickness(), 0);
+				double innerAftRadius = Math.max(transition.getAftRadius() - transition.getThickness(), 0);
 				// Inner full volume
-				double inner = Math.PI / 3.0 * transition.getLength() * (pow2(ir1) + ir1 * ir2 + pow2(ir2));
+				double inner = Math.PI / 3.0 * transition.getLength() * (pow2(innerForeRadius) + innerForeRadius * innerAftRadius + pow2(innerAftRadius));
 				return Optional.of(outer - inner);
 			}
+
+			@Override
+			public Optional<Double> getComponentWetArea(Transition transition) {
+				
+				double WetArea = Math.PI * (transition.getForeRadius() * transition.getAftRadius()) * Math.sqrt(pow2(transition.getLength()) + pow2(transition.getForeRadius()+transition.getAftRadius()));
+				return Optional.of(WetArea);
+			};
 
             //public double getComponentVolume() {
 
