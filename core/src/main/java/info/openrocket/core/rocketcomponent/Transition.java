@@ -608,14 +608,12 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
     @Override
     public double getComponentVolume() {
         if (isClipped()) {
-
+            return super.getComponentVolume();
         } else {
-
+            Optional<Double> v =  type.getVolume(this);
+            // TODO : Add the Shoulder
+            return v.orElse(super.getComponentVolume());
         }
-
-        Optional<Double> v =  type.getVolume(this);
-
-        return v.orElse(super.getComponentVolume());
     }
 
 	/**
