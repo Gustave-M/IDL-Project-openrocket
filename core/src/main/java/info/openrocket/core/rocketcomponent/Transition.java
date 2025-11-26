@@ -975,10 +975,14 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 
             //ira, ir2 devrait être des paramètres interne aux Shapes ?
 
-            //getComponentWetArea : Math.PI * (ir1 * ir2) * sqrt(pow2(length) + pow2(ir1+ir2))
-            //getComponentPlanformArea : 2*ir1*length + (ir1-ir2)*length (pas sur pour les ir1 ou ir2 mais l'idée est là)
+            //innerForeRadius, innerAftRadius
+
+            //getComponentWetArea : Math.PI * (foreRadius * AftRadius) * sqrt(pow2(length) + pow2(ir1+ir2))
+            //getComponentPlanformArea : 2*foreRadius*length + (foreRadius-aftRadius)*length
             //getComponentPlanformCenter : ?
             //getSymmetricComponentCG : Coordinate(?, 0, 0, mass)
+
+            //Pour les UnitInertia, retrouver les vrai formule ! ici esquisse GPT
             //getLongitudinalUnitInertia : (R²+r²)/2 (pas vérifié, source)
             //getRotationalUnitInertia : (R²+r²)/4 + (h²/6)((r+3R)/(r+R)) - (h²/9)((r+2R)²/((r+R)²)) (pas vérificé, source)
 		},
