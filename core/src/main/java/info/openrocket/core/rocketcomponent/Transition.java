@@ -612,21 +612,10 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
         } else {
 
         }
-        double x = this.getForeRadius();
-        double y = this.getAftRadius();
-        double l = this.getLength();
-        double t = this.getThickness();
-        boolean filled = this.isFilled();
 
-        Optional<Double> v =  type.getVolume(x, y, l, t, filled);
+        Optional<Double> v =  type.getVolume(this);
 
         return v.orElse(super.getComponentVolume());
-        //equivalent à
-        /*if (v.isPresent()) {
-            return v.get();
-        } else {
-            return super.getComponentVolume();
-        }*/
     }
 
 	/**
@@ -946,25 +935,25 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 			}
 
 			@Override
-			public Optional<Double> getFullVolume(double foreRadius, double aftRadius, double length) {
+			public Optional<Double> getFullVolume(Transition transition) {
 				// Volume of a conical section: V = pi/3 * L * (r1^2 + r1*r2 + r2^2)
-				double v = Math.PI / 3.0 * length * (pow2(foreRadius) + foreRadius * aftRadius + pow2(aftRadius));
+				double v = Math.PI / 3.0 * transition.getLength() * (pow2(transition.getForeRadius()) + transition.getForeRadius() * transition.getAftRadius() + pow2(transition.getAftRadius()));
 				return Optional.of(v);
 			}
 
 			@Override
-			public Optional<Double> getVolume(double foreRadius, double aftRadius, double length, double thickness, boolean filled) {
+			public Optional<Double> getVolume(Transition transition) {
 				// If filled, return full volume
-				if (filled) {
-					return getFullVolume(foreRadius, aftRadius, length);
+				if (transition.isFilled()) {
+					return getFullVolume(transition);
 				}
 				// Outer full volume
-				double outer = Math.PI / 3.0 * length * (pow2(foreRadius) + foreRadius * aftRadius + pow2(aftRadius));
+				double outer = Math.PI / 3.0 * transition.getLength() * (pow2(transition.getForeRadius()) + transition.getForeRadius() * transition.getAftRadius() + pow2(transition.getAftRadius()));
 				// Inner radii (clamp at 0)
-				double ir1 = Math.max(foreRadius - thickness, 0);
-				double ir2 = Math.max(aftRadius - thickness, 0);
+				double ir1 = Math.max(transition.getForeRadius() - transition.getThickness(), 0);
+				double ir2 = Math.max(transition.getAftRadius() - transition.getThickness(), 0);
 				// Inner full volume
-				double inner = Math.PI / 3.0 * length * (pow2(ir1) + ir1 * ir2 + pow2(ir2));
+				double inner = Math.PI / 3.0 * transition.getLength() * (pow2(ir1) + ir1 * ir2 + pow2(ir2));
 				return Optional.of(outer - inner);
 			}
 
@@ -1300,12 +1289,10 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 		 * given the fore and aft outer radii and the length. Return null if an analytic
 		 * formula is not provided for this shape.
 		 *
-		 * @param foreRadius outer radius at fore end
-		 * @param aftRadius  outer radius at aft end
-		 * @param length     length of the shape
+		 * @param transition The transition
 		 * @return analytic full volume (cubic units) or null if not available
 		 */
-		public Optional<Double> getFullVolume(double foreRadius, double aftRadius, double length) {
+		public Optional<Double> getFullVolume(Transition transition) {
 			return Optional.empty();
 		}
 
@@ -1314,14 +1301,86 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 		 * taking wall thickness or filled flag into account. Return null if an analytic
 		 * formula is not provided for this shape.
 		 *
-		 * @param foreRadius outer radius at fore end
-		 * @param aftRadius  outer radius at aft end
-		 * @param length     length of the shape
-		 * @param thickness  wall thickness (ignored if filled)
-		 * @param filled     whether the shape is filled (solid)
+		 * @param transition The transition
 		 * @return analytic hollow volume (cubic units) or null if not available
 		 */
-		public Optional<Double> getVolume(double foreRadius, double aftRadius, double length, double thickness, boolean filled) {
+		public Optional<Double> getVolume(Transition transition) {
+			return Optional.empty();
+		}
+
+		/**
+		 * Optional analytic wetted surface area of this shape (outer surface area),
+		 * taking into account wall thickness only insofar as it affects the outer
+		 * geometry. Implementations should compute the outer surface area of the
+		 * transition (i.e. the surface in contact with the surrounding fluid).
+		 *
+		 * @param transition The transition 
+		 * @return Analytic wetted surface area (square units) or empty if not available
+		 */
+		public Optional<Double> getComponentWetArea(Transition transition) {
+			return Optional.empty();
+		}
+
+		/**
+		 * Optional analytic planform area of this shape. The planform area is
+		 * the projection area of the component onto a plane orthogonal to the body
+		 * axis.
+		 *
+		 * @param transition The transition
+		 * @return Analytic planform area (square units) or empty if not available
+		 */
+		public Optional<Double> getComponentPlanformArea(Transition transition) {
+			return Optional.empty();
+		}
+
+		/**
+		 * Optional analytic planform centroid of this shape. Returns the
+		 * longitudinal location of the planform area centroid.
+		 * The returned Coordinate should carry the X coordinate (longitudinal position) and the
+		 * weight field may be used to store the planform area if convenient.
+		 *
+		 * @param transition The transition
+		 * @return Analytic planform centroid (Coordinate) or empty if not available
+		 */
+		public Optional<Coordinate> getComponentPlanformCenter(Transition transition) {
+			return Optional.empty();
+		}
+
+		/**
+		 * Optional analytic center of gravity for the solid given by
+		 * this shape and the transition parameters. The returned {@link Coordinate}
+		 * should encode the longitudinal CG in X and include the mass/weight in the
+		 * weight field.
+		 *
+		 * @param transition Transition instance
+		 * @return Analytic CG coordinate (with weight = mass) or empty if not available
+		 */
+		public Optional<Coordinate> getSymmetricComponentCG(Transition transition) {
+			return Optional.empty();
+		}
+
+		/**
+		 * Optional analytic longitudinal unit moment of inertia for this shape
+		 * (i.e. second moment per unit mass about the longitudinal axis through the
+		 * component's centroid). The returned value should be expressed in squared
+		 * length units (e.g. m^2).
+		 *
+		 * @param transition Transition instance
+		 * @return Longitudinal unit inertia or empty if not available
+		 */
+		public Optional<Double> getLongitudinalUnitInertia(Transition transition) {
+			return Optional.empty();
+		}
+
+		/**
+		 * Optional analytic rotational unit moment of inertia for this shape
+		 * (i.e. transverse/rotational inertia per unit mass about the component's
+		 * centroid). The returned value should be expressed in squared length units
+		 *
+		 * @param transition Transition instance
+		 * @return Rotational unit inertia or empty if not available
+		 */
+		public Optional<Double> getRotationalUnitInertia(Transition transition) {
 			return Optional.empty();
 		}
 
