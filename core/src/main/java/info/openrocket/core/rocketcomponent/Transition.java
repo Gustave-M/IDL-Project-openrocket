@@ -610,7 +610,7 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
         if (isClipped()) {
             return super.getComponentVolume();
         } else {
-            Optional<Double> v =  type.getVolume(this);
+            Optional<Double> v =  type.getComponentVolume(this);
             // TODO : Add the Shoulder
             return v.orElse(super.getComponentVolume());
         }
@@ -940,7 +940,7 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 			}
 
 			@Override
-			public Optional<Double> getVolume(Transition transition) {
+			public Optional<Double> getComponentVolume(Transition transition) {
 				// If filled, return full volume
 				if (transition.isFilled()) {
 					return getFullVolume(transition);
@@ -1302,7 +1302,7 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 		 * @param transition The transition
 		 * @return analytic hollow volume (cubic units) or null if not available
 		 */
-		public Optional<Double> getVolume(Transition transition) {
+		public Optional<Double> getComponentVolume(Transition transition) {
 			return Optional.empty();
 		}
 
