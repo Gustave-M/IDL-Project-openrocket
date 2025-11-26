@@ -616,7 +616,23 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
         }
     }
 
-	/**
+    /**
+     * Return the Full Volume (by direct calculation or by the super() implementation)
+     */
+    @Override
+    public double getFullVolume() {
+        if (isClipped()) {
+            return super.getFullVolume();
+        } else {
+            Optional<Double> fullVomule =  type.getFullVolume(this);
+            // TODO : Add the Shoulder
+            return fullVomule.orElse(super.getFullVolume());
+        }
+    }
+
+
+
+    /**
 	 * Numerically solve clipLength from the equation
 	 * r1 == type.getRadius(clipLength,r2,clipLength+length)
 	 * using a binary search. It assumes getOuterRadius() to be monotonically
