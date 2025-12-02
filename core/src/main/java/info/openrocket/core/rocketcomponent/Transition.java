@@ -39,6 +39,30 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 	// Used to cache the clip length
 	private double clipLength = -1;
 
+	// Cached shoulder/cap properties to avoid duplicated calculations
+	private boolean shouldersComputed = false;
+
+	private double foreCapVolume = 0.0;
+	private CoordinateIF foreCapCG = Coordinate.ZERO;
+	// local (unshifted) moments stored by calculateShoulderProperties
+	private double foreCapLongMOILocal = 0.0;
+	private double foreCapRotMOILocal = 0.0;
+
+	private double foreShoulderVolume = 0.0;
+	private CoordinateIF foreShoulderCG = Coordinate.ZERO;
+	private double foreShoulderLongMOILocal = 0.0;
+	private double foreShoulderRotMOILocal = 0.0;
+
+	private double aftShoulderVolume = 0.0;
+	private CoordinateIF aftShoulderCG = Coordinate.ZERO;
+	private double aftShoulderLongMOILocal = 0.0;
+	private double aftShoulderRotMOILocal = 0.0;
+
+	private double aftCapVolume = 0.0;
+	private CoordinateIF aftCapCG = Coordinate.ZERO;
+	private double aftCapLongMOILocal = 0.0;
+	private double aftCapRotMOILocal = 0.0;
+
 	private InsideColorComponentHandler insideColorComponentHandler = new InsideColorComponentHandler(this);
 
 	public Transition() {
@@ -603,18 +627,34 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 	}
 
     /**
-     * Return the Volume (by direct calculation or by the super() implementation)
+     * Return the Volume with shoulders (by direct calculation or by the super() implementation fallback)
      */
     @Override
     public double getComponentVolume() {
         if (isClipped()) {
             return super.getComponentVolume();
         } else {
-            Optional<Double> v =  type.getComponentVolume(this);
-            // TODO : Add the Shoulder
-            return v.orElse(super.getComponentVolume());
+			Optional<Double> v = type.getComponentVolume(this);
+
+			// Prefer analytic shape volume when available, otherwise fall back to
+			// numerical super implementation for the transition core.
+			final double transVolume = v.orElseGet(() -> super.getComponentVolume());
+
+			// Ensure shoulder properties are calculated and cached.
+			if (!shouldersComputed) {
+				calculateShoulderProperties();
+			}
+			// Total volume (core transition + shoulders + caps)
+			double totalVolume = foreCapVolume + foreShoulderVolume + transVolume + aftShoulderVolume + aftCapVolume;
+
+			// Write into the protected cache so subsequent calls reuse the value
+			this.volume = transVolume;
+
+			return totalVolume;
         }
     }
+	//NE PAS STOCKER TOTALVOLUME, CORRIGER METHODES 
+
 
     /**
      * Return the Full Volume (by direct calculation or by the super() implementation)
@@ -624,9 +664,12 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
         if (isClipped()) {
             return super.getFullVolume();
         } else {
-            Optional<Double> fullVomule =  type.getFullVolume(this);
-            // TODO : Add the Shoulder
-            return fullVomule.orElse(super.getFullVolume());
+			Optional<Double> optfullVolume = type.getFullVolume(this);
+			// Prefer analytic full volume when available, otherwise fall back to
+			// numerical super implementation for the transition core.
+			final double transFull = optfullVolume.orElseGet(() -> super.getFullVolume());
+			this.fullVolume = transFull;
+			return transFull;
         }
     }
 
@@ -638,11 +681,269 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
         if (isClipped()) {
             return super.getComponentWetArea();
         } else {
-            Optional<Double> v =  type.getComponentWetArea(this);
-            // TODO : Add the Shoulder
-            return v.orElse(super.getComponentWetArea());
+            Optional<Double> optwetArea =  type.getComponentWetArea(this);
+			
+			final double wetAreaValue = optwetArea.orElseGet(() -> super.getComponentWetArea());
+			this.wetArea = wetAreaValue;
+            return wetAreaValue;
         }
     }
+
+	/**
+	 * Return the Planform Area (by direct calculation or by the super() implementation)
+	 */
+	@Override
+    public double getComponentPlanformArea() {
+        if (isClipped()) {
+            return super.getComponentPlanformArea();
+        } else {
+            Optional<Double> optPlanformArea =  type.getComponentPlanformArea(this);
+			
+			final double planformAreaValue = optPlanformArea.orElseGet(() -> super.getComponentPlanformArea());
+			this.planArea = planformAreaValue;
+            return planformAreaValue;
+        }
+    }
+
+	/**
+	 * Return the Planform Center (by direct calculation or by the super() implementation)
+	 */
+	@Override
+    public double getComponentPlanformCenter() {
+        if (isClipped()) {
+            return super.getComponentPlanformCenter();
+        } else {
+            Optional<Double> optPlanformCenter =  type.getComponentPlanformCenter(this);
+			
+			final double planformCenterValue = optPlanformCenter.orElseGet(() -> super.getComponentPlanformCenter());
+			this.planCenter = planformCenterValue;
+            return planformCenterValue;
+        }
+    }
+
+	/**
+	 * Return analytic longitudinal unit inertia (per-unit-mass) if the Shape
+	 * provides it; otherwise fall back to the numeric implementation in super.
+	 */
+	@Override
+	public double getLongitudinalUnitInertia() {
+		if (isClipped()) {
+			return super.getLongitudinalUnitInertia();
+		}
+
+		// Ensure shoulder/cap values are available
+		if (!shouldersComputed) {
+			calculateShoulderProperties();
+		}
+
+		// Determine the core (transition) volume and unit inertia: prefer analytic
+		// shape values when provided, otherwise fall back to the numeric super
+		// implementation for the transition core.
+		double transVolume = type.getComponentVolume(this).orElseGet(() -> super.getComponentVolume());
+		double transUnitLong = type.getLongitudinalUnitInertia(this).orElseGet(() -> super.getLongitudinalUnitInertia());
+		double transLongMOI = transUnitLong * transVolume;
+
+		// Determine the core CG: prefer analytic CG if available, otherwise ensure
+		// the super core calculation has been run and use its CG.
+		CoordinateIF transCG;
+		Optional<Coordinate> optTransCG = type.getSymmetricComponentCG(this);
+		if (optTransCG.isPresent()) {
+			transCG = optTransCG.get();
+		} else {
+			super.calculateProperties();
+			transCG = cg;
+		}
+
+		// Combine masses/weights to compute combined CG
+		double cgx = foreCapCG.getX() * foreCapCG.getWeight() + foreShoulderCG.getX() * foreShoulderCG.getWeight()
+				+ transCG.getX() * transCG.getWeight() + aftShoulderCG.getX() * aftShoulderCG.getWeight()
+				+ aftCapCG.getX() * aftCapCG.getWeight();
+
+		double mass = foreCapCG.getWeight() + foreShoulderCG.getWeight() + transCG.getWeight() + aftShoulderCG.getWeight() + aftCapCG.getWeight();
+
+		if (mass < MathUtil.EPSILON) {
+			cg = new Coordinate(0, 0, 0, 0);
+			longitudinalUnitInertia = 0.0;
+			rotationalUnitInertia = 0.0;
+			return longitudinalUnitInertia;
+		}
+
+		cg = new Coordinate(cgx / mass, 0, 0, mass);
+
+		// compute shifted moments: use local (unshifted) shoulder moments and
+		// parallel-axis shift for the core (transLongMOI) and caps/shoulders
+		double foreCapLongMOIShifted = foreCapLongMOILocal + pow2(cg.getX() - foreCapCG.getX()) * foreCapVolume;
+		double foreShoulderLongMOIShifted = foreShoulderLongMOILocal + pow2(cg.getX() - foreShoulderCG.getX()) * foreShoulderVolume;
+		double transLongMOIShifted = transLongMOI + pow2(cg.getX() - transCG.getX()) * transVolume;
+		double aftShoulderLongMOIShifted = aftShoulderLongMOILocal + pow2(cg.getX() - aftShoulderCG.getX()) * aftShoulderVolume;
+		double aftCapLongMOIShifted = aftCapLongMOILocal + pow2(cg.getX() - aftCapCG.getX()) * aftCapVolume;
+
+		double longMOI = foreCapLongMOIShifted + foreShoulderLongMOIShifted + transLongMOIShifted + aftShoulderLongMOIShifted + aftCapLongMOIShifted;
+
+		// total external volume (used as mass proxy since density is uniform)
+		double totalVolume = foreCapVolume + foreShoulderVolume + transVolume + aftShoulderVolume + aftCapVolume;
+
+		this.longitudinalUnitInertia = longMOI / totalVolume;
+		return this.longitudinalUnitInertia;
+	}
+
+	/**
+	 * Return analytic rotational unit inertia (per-unit-mass) if the Shape
+	 * provides it; otherwise fall back to the numeric implementation in super.
+	 */
+	@Override
+	public double getRotationalUnitInertia() {
+		if (isClipped()) {
+			return super.getRotationalUnitInertia();
+		}
+
+		// Ensure shoulder properties are available
+		if (!shouldersComputed) {
+			calculateShoulderProperties();
+		}
+
+		// Core (transition) rotational inertia
+		double transVolume = type.getComponentVolume(this).orElseGet(() -> super.getComponentVolume());
+		double transUnitRot = type.getRotationalUnitInertia(this).orElseGet(() -> super.getRotationalUnitInertia());
+		double transRotMOI = transUnitRot * transVolume;
+
+		// Core CG
+		CoordinateIF transCG;
+		Optional<Coordinate> optTransCG = type.getSymmetricComponentCG(this);
+		if (optTransCG.isPresent()) {
+			transCG = optTransCG.get();
+		} else {
+			super.calculateProperties();
+			transCG = cg;
+		}
+
+		// Combine weights for CG
+		double cgx = foreCapCG.getX() * foreCapCG.getWeight() + foreShoulderCG.getX() * foreShoulderCG.getWeight()
+				+ transCG.getX() * transCG.getWeight() + aftShoulderCG.getX() * aftShoulderCG.getWeight()
+				+ aftCapCG.getX() * aftCapCG.getWeight();
+
+		double mass = foreCapCG.getWeight() + foreShoulderCG.getWeight() + transCG.getWeight() + aftShoulderCG.getWeight() + aftCapCG.getWeight();
+
+		if (mass < MathUtil.EPSILON) {
+			cg = new Coordinate(0, 0, 0, 0);
+			longitudinalUnitInertia = 0.0;
+			rotationalUnitInertia = 0.0;
+			return rotationalUnitInertia;
+		}
+
+		cg = new Coordinate(cgx / mass, 0, 0, mass);
+
+		// shifted rotational moments
+		double foreCapRotMOIShifted = foreCapRotMOILocal + pow2(cg.getX() - foreCapCG.getX()) * foreCapVolume;
+		double foreShoulderRotMOIShifted = foreShoulderRotMOILocal + pow2(cg.getX() - foreShoulderCG.getX()) * foreShoulderVolume;
+		double transRotMOIShifted = transRotMOI + pow2(cg.getX() - transCG.getX()) * transVolume;
+		double aftShoulderRotMOIShifted = aftShoulderRotMOILocal + pow2(cg.getX() - aftShoulderCG.getX()) * aftShoulderVolume;
+		double aftCapRotMOIShifted = aftCapRotMOILocal + pow2(cg.getX() - aftCapCG.getX()) * aftCapVolume;
+
+		double rotMOI = foreCapRotMOIShifted + foreShoulderRotMOIShifted + transRotMOIShifted + aftShoulderRotMOIShifted + aftCapRotMOIShifted;
+
+		double totalVolume = foreCapVolume + foreShoulderVolume + transVolume + aftShoulderVolume + aftCapVolume;
+
+		this.rotationalUnitInertia = rotMOI / totalVolume;
+		return this.rotationalUnitInertia;
+	}
+	
+
+	
+
+
+	/**
+	 * Calculate and cache shoulder and cap properties (volumes, CGs and unit MOIs).
+	 * This centralises the duplicated shoulder/cap code so both volume queries and
+	 * property calculations can reuse the same values.
+	 */
+	private void calculateShoulderProperties() {
+		if (shouldersComputed) {
+			return;
+		}
+
+		// Reset cached values
+		foreCapVolume = 0.0;
+		foreCapCG = Coordinate.ZERO;
+		foreCapLongMOILocal = 0.0;
+		foreCapRotMOILocal = 0.0;
+
+		foreShoulderVolume = 0.0;
+		foreShoulderCG = Coordinate.ZERO;
+		foreShoulderLongMOILocal = 0.0;
+		foreShoulderRotMOILocal = 0.0;
+
+		aftShoulderVolume = 0.0;
+		aftShoulderCG = Coordinate.ZERO;
+		aftShoulderLongMOILocal = 0.0;
+		aftShoulderRotMOILocal = 0.0;
+
+		aftCapVolume = 0.0;
+		aftCapCG = Coordinate.ZERO;
+		aftCapLongMOILocal = 0.0;
+		aftCapRotMOILocal = 0.0;
+
+		// Fore cap
+		if (isForeShoulderCapped()) {
+			final double ir = Math.max(getForeShoulderRadius() - getForeShoulderThickness(), 0);
+
+			foreCapCG = ringCG(ir, 0, -getForeShoulderLength(), getForeShoulderThickness() - getForeShoulderLength(),
+					getMaterial().getDensity());
+
+			foreCapVolume = ringVolume(ir, 0, getForeShoulderThickness());
+
+			// store local (unshifted) moments; shifting is applied later when the
+			// combined component CG is known
+			foreCapLongMOILocal = ringLongitudinalUnitInertia(ir, 0, getForeShoulderThickness()) * foreCapVolume;
+
+			foreCapRotMOILocal = ringRotationalUnitInertia(ir, 0.0) * foreCapVolume;
+		}
+
+		// Fore shoulder
+		if (getForeShoulderLength() > MINFEATURE) {
+			final double or = getForeShoulderRadius();
+			final double ir = Math.max(getForeShoulderRadius() - getForeShoulderThickness(), 0);
+
+			foreShoulderCG = ringCG(or, ir, -getForeShoulderLength(), 0, getMaterial().getDensity());
+
+			foreShoulderVolume = ringVolume(or, ir, getForeShoulderLength());
+
+			foreShoulderLongMOILocal = ringLongitudinalUnitInertia(or, ir, getForeShoulderLength()) * foreShoulderVolume;
+
+			foreShoulderRotMOILocal = ringRotationalUnitInertia(or, ir) * foreShoulderVolume;
+		}
+
+		// Aft shoulder
+		if (getAftShoulderLength() > MINFEATURE) {
+			final double or = getAftShoulderRadius();
+			final double ir = Math.max(getAftShoulderRadius() - getAftShoulderThickness(), 0);
+
+			aftShoulderCG = ringCG(getAftShoulderRadius(), ir, getLength(), getLength() + getAftShoulderLength(),
+					getMaterial().getDensity());
+
+			aftShoulderVolume = ringVolume(or, ir, getAftShoulderLength());
+
+			aftShoulderLongMOILocal = ringLongitudinalUnitInertia(or, ir, getAftShoulderLength()) * aftShoulderVolume;
+
+			aftShoulderRotMOILocal = ringRotationalUnitInertia(or, ir) * aftShoulderVolume;
+		}
+
+		// Aft cap
+		if (isAftShoulderCapped()) {
+			final double ir = Math.max(getAftShoulderRadius() - getAftShoulderThickness(), 0);
+
+			aftCapCG = ringCG(ir, 0, getLength() + getAftShoulderLength() - getAftShoulderThickness(),
+					getLength() + getAftShoulderLength(), getMaterial().getDensity());
+
+			aftCapVolume = ringVolume(ir, 0, getAftShoulderThickness());
+
+			aftCapLongMOILocal = ringLongitudinalUnitInertia(ir, 0, getForeShoulderThickness()) * aftCapVolume;
+
+			aftCapRotMOILocal = ringRotationalUnitInertia(ir, 0.0) * aftCapVolume;
+		}
+
+		shouldersComputed = true;
+	}
 
 
 	/**
@@ -714,7 +1015,6 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 	@Override
 	protected void calculateProperties() {
 		super.calculateProperties();
-
 		// only adjust properties if there is in fact at least one shoulder
 		if ((getForeShoulderLength() > MINFEATURE) || (getAftShoulderLength() > MINFEATURE)) {
 			// we'll work with volumes and not masses because density is uniform and it'll
@@ -726,78 +1026,8 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 			double transRotMOI = rotationalUnitInertia * transVolume;
 			final CoordinateIF transCG = cg;
 
-			double foreCapVolume = 0.0;
-			CoordinateIF foreCapCG = Coordinate.ZERO;
-			double foreCapLongMOI = 0.0;
-			double foreCapRotMOI = 0.0;
-			if (isForeShoulderCapped()) {
-				final double ir = Math.max(getForeShoulderRadius() - getForeShoulderThickness(), 0);
-
-				foreCapCG = ringCG(ir, 0, -getForeShoulderLength(),
-						getForeShoulderThickness() - getForeShoulderLength(),
-						getMaterial().getDensity());
-
-				foreCapVolume = ringVolume(ir, 0, getForeShoulderThickness());
-
-				foreCapLongMOI = ringLongitudinalUnitInertia(ir, 0, getForeShoulderThickness()) * foreCapVolume;
-
-				foreCapRotMOI += ringRotationalUnitInertia(ir, 0.0) * foreCapVolume;
-			}
-
-			double foreShoulderVolume = 0.0;
-			CoordinateIF foreShoulderCG = Coordinate.ZERO;
-			double foreShoulderLongMOI = 0.0;
-			double foreShoulderRotMOI = 0.0;
-			if (getForeShoulderLength() > MINFEATURE) {
-				final double or = getForeShoulderRadius();
-				final double ir = Math.max(getForeShoulderRadius() - getForeShoulderThickness(), 0);
-
-				foreShoulderCG = ringCG(getForeShoulderRadius(), ir, -getForeShoulderLength(), 0,
-						getMaterial().getDensity());
-
-				foreShoulderVolume = ringVolume(or, ir, getForeShoulderLength());
-
-				foreShoulderLongMOI = ringLongitudinalUnitInertia(or, ir, getForeShoulderLength()) * foreShoulderVolume;
-
-				foreShoulderRotMOI = ringRotationalUnitInertia(or, ir) * foreShoulderVolume;
-			}
-
-			double aftShoulderVolume = 0.0;
-			CoordinateIF aftShoulderCG = Coordinate.ZERO;
-			double aftShoulderLongMOI = 0.0;
-			double aftShoulderRotMOI = 0.0;
-			if (getAftShoulderLength() > MINFEATURE) {
-				final double or = getAftShoulderRadius();
-				final double ir = Math.max(getAftShoulderRadius() - getAftShoulderThickness(), 0);
-
-				aftShoulderCG = ringCG(getAftShoulderRadius(), ir, getLength(),
-									   getLength() + getAftShoulderLength(),
-									   getMaterial().getDensity());
-
-				aftShoulderVolume = ringVolume(or, ir, getAftShoulderLength());
-
-				aftShoulderLongMOI = ringLongitudinalUnitInertia(or, ir, getAftShoulderLength())*aftShoulderVolume;
-
-				aftShoulderRotMOI = ringRotationalUnitInertia(or, ir) * aftShoulderVolume;
-			}
-
-			double aftCapVolume = 0.0;
-			CoordinateIF aftCapCG = Coordinate.ZERO;
-			double aftCapLongMOI = 0.0;
-			double aftCapRotMOI = 0.0;
-			if (isAftShoulderCapped()) {
-				final double ir = Math.max(getAftShoulderRadius() - getAftShoulderThickness(), 0);
-
-				aftCapCG = ringCG(ir, 0,
-								  getLength() + getAftShoulderLength() - getAftShoulderThickness(),
-								  getLength() + getAftShoulderLength(), getMaterial().getDensity());
-
-				aftCapVolume = ringVolume(ir, 0, getAftShoulderThickness() );
-
-				aftCapLongMOI = ringLongitudinalUnitInertia(ir, 0, getForeShoulderThickness())*aftCapVolume;
-
-				aftCapRotMOI = ringRotationalUnitInertia(ir, 0.0) * aftCapVolume;
-			}
+			// Ensure shoulder/cap values are calculated and cached
+			calculateShoulderProperties();
 
 			// Combine results
 			volume = foreCapVolume + foreShoulderVolume + transVolume + aftShoulderVolume + aftCapVolume;
@@ -809,7 +1039,7 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 				aftCapCG.getX() * aftCapCG.getWeight();
 
 			final double mass = foreCapCG.getWeight() + foreShoulderCG.getWeight() + transCG.getWeight() + aftShoulderCG.getWeight() + aftCapCG.getWeight();
-			
+
 			// If the mass is 0, so are moments of inertia
 			if (mass < MathUtil.EPSILON) {
 				cg = new Coordinate(0, 0, 0, 0);
@@ -818,20 +1048,26 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 
 				return;
 			}
-			
+
 			cg = new Coordinate(cgx / mass, 0, 0, mass);
 
-			// need to use parallel axis theorem to move longitudinal MOI to CG of component
-			foreCapLongMOI += pow2(cg.getX() - foreCapCG.getX()) * foreCapVolume;
-			foreShoulderLongMOI += pow2(cg.getX() - foreShoulderCG.getX()) * foreShoulderVolume;
-			transLongMOI += pow2(cg.getX() - transCG.getX()) * transVolume;
-			aftShoulderLongMOI += pow2(cg.getX() - aftShoulderCG.getX()) * aftShoulderVolume;
-			aftCapLongMOI += pow2(cg.getX() - aftCapCG.getX()) * aftCapVolume;
+			// compute shifted (about combined CG) moments using stored local moments
+			double foreCapLongMOIShifted = foreCapLongMOILocal + pow2(cg.getX() - foreCapCG.getX()) * foreCapVolume;
+			double foreShoulderLongMOIShifted = foreShoulderLongMOILocal + pow2(cg.getX() - foreShoulderCG.getX()) * foreShoulderVolume;
+			double transLongMOIShifted = transLongMOI + pow2(cg.getX() - transCG.getX()) * transVolume;
+			double aftShoulderLongMOIShifted = aftShoulderLongMOILocal + pow2(cg.getX() - aftShoulderCG.getX()) * aftShoulderVolume;
+			double aftCapLongMOIShifted = aftCapLongMOILocal + pow2(cg.getX() - aftCapCG.getX()) * aftCapVolume;
 
-			final double longMOI = foreCapLongMOI + foreShoulderLongMOI + transLongMOI + aftShoulderLongMOI + aftCapLongMOI;
+			final double longMOI = foreCapLongMOIShifted + foreShoulderLongMOIShifted + transLongMOIShifted + aftShoulderLongMOIShifted + aftCapLongMOIShifted;
 			longitudinalUnitInertia = longMOI/volume;
 
-			final double rotMOI = foreCapRotMOI + foreShoulderRotMOI + transRotMOI + aftShoulderRotMOI + aftCapRotMOI;
+			double foreCapRotMOIShifted = foreCapRotMOILocal + /* rotational parallel-axis shift is same formula */ pow2(cg.getX() - foreCapCG.getX()) * foreCapVolume;
+			double foreShoulderRotMOIShifted = foreShoulderRotMOILocal + pow2(cg.getX() - foreShoulderCG.getX()) * foreShoulderVolume;
+			double transRotMOIShifted = transRotMOI + pow2(cg.getX() - transCG.getX()) * transVolume;
+			double aftShoulderRotMOIShifted = aftShoulderRotMOILocal + pow2(cg.getX() - aftShoulderCG.getX()) * aftShoulderVolume;
+			double aftCapRotMOIShifted = aftCapRotMOILocal + pow2(cg.getX() - aftCapCG.getX()) * aftCapVolume;
+
+			final double rotMOI = foreCapRotMOIShifted + foreShoulderRotMOIShifted + transRotMOIShifted + aftShoulderRotMOIShifted + aftCapRotMOIShifted;
 			rotationalUnitInertia = rotMOI/volume;
 		}
  	}
@@ -849,6 +1085,8 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 	protected void componentChanged(ComponentChangeEvent e) {
 		super.componentChanged(e);
 		clipLength = -1;
+		// Invalidate cached shoulder properties when the component changes
+		shouldersComputed = false;
 	}
 
 	/**
@@ -1380,7 +1618,7 @@ public class Transition extends SymmetricComponent implements InsideColorCompone
 		 * @param transition The transition
 		 * @return Analytic planform centroid (Coordinate) or empty if not available
 		 */
-		public Optional<Coordinate> getComponentPlanformCenter(Transition transition) {
+		public Optional<Double> getComponentPlanformCenter(Transition transition) {
 			return Optional.empty();
 		}
 
